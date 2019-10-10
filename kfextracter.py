@@ -1,4 +1,5 @@
 import re
+import os
 
 #見出し取り出す
 #読みが複数あるとき正しく動作しない
@@ -9,6 +10,7 @@ def ExtractMidashi(frameFileName):
     #lexunit列挙
     frame = open(frameFileName, "r", encoding='euc-jp', errors='ignore')
     contents = frame.read()
+    frame.close()
     #print(contents)
     midashiExtracter = re.compile('<見出し>.*/')
     m = midashiExtracter.search(contents)
@@ -69,10 +71,18 @@ def ExtractYorei(frameFileName):
 
     yorei=[]
 
+    #print("hello")
+    if not os.path.exists(frameFileName):
+        print(frameFileName+"は存在しません")
+        return yorei
+    #else:
+    #    print(frameFileName)
+
     #lexunit列挙
     frame = open(frameFileName, "r", encoding='euc-jp', errors='ignore')
     contents = frame.read()
     #print(contents)
+    frame.close()
 
     frameExtracter = re.compile("<見出し>.*?</見出し>", re.MULTILINE | re.DOTALL)
 

@@ -6,11 +6,12 @@ import os
 
 Ne = 3
 CNIL = 0.3
+#TOPN = 10
 
 def calcScore(midashi, midashiMostSimilars, fn, model):
 
     vs = fnex.ExtractVerb(fn)
-
+    #print(vs)
     # print(vs)
 
     additional = []
@@ -22,8 +23,10 @@ def calcScore(midashi, midashiMostSimilars, fn, model):
         for j in range(1, len(parts)):
             additional.append(parts[j])
 
-    # print(vs)
     vs.extend(additional)
+    #print(vs)
+    #print(midashiMostSimilars[0:100])
+    #print(midashiMostSimilars[-1])
     similars = []
     for s in midashiMostSimilars:
         similars.append(s[0])
@@ -81,7 +84,7 @@ def calcscore2(kframe, fnframe, model, kakuNum):
             #用例に含まれるかは関係なく全部の意味役割のタグが各luに書いてあるはずだからこれいるかどうかわからん
             if not exist:
                 elems.extend(j)
-
+    print("element")
     print(elems)
 
     yorei = kfex.ExtractYorei(kframe)
@@ -89,7 +92,14 @@ def calcscore2(kframe, fnframe, model, kakuNum):
     ga = yorei[kakuNum][0]
     wo = yorei[kakuNum][1]
     ni = yorei[kakuNum][2]
-
+    """
+    print("ガ格")
+    print(ga)
+    print("ヲ格")
+    print(wo)
+    print("ニ格")
+    print(ni)
+    """
     gaAvr = np.zeros(len(model["は"]))
     woAvr = np.zeros(len(gaAvr))
     niAvr = np.zeros(len(gaAvr))
@@ -219,5 +229,8 @@ def calcscore2(kframe, fnframe, model, kakuNum):
                     bestCom = (g,w,n)
     elems.append(('None', 'noCore'))
     print('最良組み合わせ ガ格:' + elems[bestCom[0]][0] + 'ヲ格:' + elems[bestCom[1]][0] + 'ニ格:' + elems[bestCom[2]][0])
+    print( "ガ格:"+str(max(gaSemScore[bestCom[0]],CNIL)) + " 重み:" + str(np.sqrt(len(ga)) ) )
+    print("ヲ格:" + str(woSemScore[bestCom[1]]) + " 重み:" + str( np.sqrt(len(wo))))
+    print("ニ格:" + str(niSemScore[bestCom[2]]) + " 重み:" + str( np.sqrt(len(ni))))
 
     return (bestScoreSum, (elems[bestCom[0]][0],elems[bestCom[1]][0],elems[bestCom[2]][0]))

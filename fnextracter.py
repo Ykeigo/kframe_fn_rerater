@@ -10,6 +10,7 @@ def ExtractVerb(frameFileName):
     #lexunit列挙
     frame = open(frameFileName, "r")
     contents = frame.read()
+    frame.close()
 
     lexUnitExtracter = re.compile('<lexUnit.*>')
     lexLines = lexUnitExtracter.findall(contents)
@@ -34,6 +35,7 @@ def ExtractID(frameFileName):
     #lexunit列挙
     frame = open(frameFileName, "r")
     contents = frame.read()
+    frame.close()
 
     lexUnitExtracter = re.compile('<lexUnit.*>')
     lexLines = lexUnitExtracter.findall(contents)
@@ -99,7 +101,6 @@ def extractHead(str):
 def ExtractElements(LUFileName):
 
     elements=[]
-
     #エレメントのname,typeを取り出す
 
     #<frame>の中の<FE>を見る
@@ -109,6 +110,7 @@ def ExtractElements(LUFileName):
 
     frame = open(LUFileName, "r")
     contents = frame.read()
+    frame.close()
 
     frameTagExtracter = re.compile('<frame>.*</frame>', re.MULTILINE|re.DOTALL)
 
@@ -145,7 +147,7 @@ def ExtractElements(LUFileName):
 
         texts = textExtracter.findall(sentenceTag)
         labels = labelExtracter.findall(sentenceTag)
-        #print(texts)
+        print(texts)
 
         for text in texts:
             text = text[6:]

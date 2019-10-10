@@ -2,55 +2,71 @@ import gensim
 import sys
 import os
 import kfextracter as kfex
+import fnextracter as fnex
 import rerater
 
 Nt = 1000
 
 args = sys.argv
 
-if len(sys.argv) < 4:
-    print("usage: python3 rerater.py kakuframe FramenetDirectory kakuFrameNum")
+if len(sys.argv) < 3:
+    print("usage: python3 rerater.py kakuframe FramenetDirectory")
     exit()
 
 print('embedding読み込み')
 # subword使ってない↓
 embedding = gensim.models.KeyedVectors.load_word2vec_format('./model.vec')
 
-print("Framenet確認中")
 
 # その格フレームの喚起語を取得
 midashi = kfex.ExtractMidashi(args[1])
-
+print("見出し："+midashi)
 if midashi not in embedding:
     print("midashi " + midashi + " not in vocabulary")
     print("program terminated")
     exit()
 
 midashiMostSimilars = embedding.most_similar(midashi, topn=Nt)
-midashiMostSimilars.append(midashi)
+
+#その単語自身を追加
+midashiMostSimilars.append((midashi,1.0))
+
+print("Framenet確認中")
 FNscores = []
 # Framenetのフォルダ内全部見ながら見出し語取得
 for f in os.scandir(path=args[2]):
     # print(f.name)
-    score = rerater.calcScore(midashi, midashiMostSimilars, args[2] + "/" + f.name,embedding)
+    score = rerater.calcScore(midashi, midashiMostSimilars, args[2] + "/" + f.name, embedding)
     if score > 0:
         FNscores.append((f.name, score))
 
 FNscores.sort(key=lambda x: x[1], reverse=True)
-#print(FNscores)
+
+
+print(FNscores)
 
 #候補のスコア計算して一番いいやつを正解とする
-best = 'none'
-bestReration = ("none", "none", "none")
-maxScore = 0
+yorei = kfex.ExtractYorei(args[1])
 for kfnum in range(kfex.getFrameNum(args[1])):
+
+    best = 'none'
+    bestReration = ("none", "none", "none")
+    maxScore = 0
+
+    ga = yorei[kfnum][0]
+    wo = yorei[kfnum][1]
+    ni = yorei[kfnum][2]
+
     for f in FNscores:
+        print(fnex.ExtractVerb(args[2] + "/" + f[0]))
+        print(f[0])
         s = rerater.calcscore2(args[1], args[2] + "/" + f[0], embedding, int(kfnum))
-        #print(s)
+        print(s)
         if maxScore < s[0]:
+            print("over")
             maxScore = s[0]
             best = f[0]
             bestReration = s[1]
 
-    print("input:"+args[1] + " フレーム"+str(kfnum) + " ans:" + best)
+    print("input:"+args[1] + " フレーム"+ str(kfnum) + " ans:" + best + " score:" + str(maxScore))
     print(bestReration)
