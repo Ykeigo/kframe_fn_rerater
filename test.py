@@ -1,5 +1,13 @@
+import sys
 
+a = sys.argv
+print(a[1] + a[2] + ".foo")
 
+"""
+import kfextracter as ke
+
+print(ke.ExtractYorei("kframe/041770.kf")[0][2])
+"""
 """
 import rerater
 import gensim

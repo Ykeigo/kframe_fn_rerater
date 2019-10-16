@@ -8,15 +8,16 @@ def ExtractMidashi(frameFileName):
     verbs=[]
 
     #lexunit列挙
-    frame = open(frameFileName, "r", encoding='euc-jp', errors='ignore')
+    frame = open(frameFileName, "r")
     contents = frame.read()
     frame.close()
     #print(contents)
     midashiExtracter = re.compile('<見出し>.*/')
     m = midashiExtracter.search(contents)
+
+    print(m)
     if m == None:
         return -1
-    #print(matchOB)
 
     me = re.compile('[^\x01-\x7E]+?/')
     v = me.findall(m.group()[5:])
@@ -75,11 +76,8 @@ def ExtractYorei(frameFileName):
     if not os.path.exists(frameFileName):
         print(frameFileName+"は存在しません")
         return yorei
-    #else:
-    #    print(frameFileName)
 
-    #lexunit列挙
-    frame = open(frameFileName, "r", encoding='euc-jp', errors='ignore')
+    frame = open(frameFileName, "r")
     contents = frame.read()
     #print(contents)
     frame.close()
@@ -94,11 +92,11 @@ def ExtractYorei(frameFileName):
 
         yoreiInFrame = []
 
-        gaExtracter = re.compile('<格.*ガ格>.*')
+        gaExtracter = re.compile('<格.*?ガ格.*?>.*')
         ga = gaExtracter.findall(frames[i])
-        niExtracter = re.compile('<格.*ニ格>.*')
+        niExtracter = re.compile('<格.*?ニ格.*?>.*')
         ni = niExtracter.findall(frames[i])
-        woExtracter = re.compile('<格.*ヲ格>.*')
+        woExtracter = re.compile('<格.*?ヲ格.*?>.*')
         wo = woExtracter.findall(frames[i])
         """
         for g in ga:
@@ -118,7 +116,7 @@ def getFrameNum(frameFileName):
     yorei=[]
 
     #lexunit列挙
-    frame = open(frameFileName, "r", encoding='euc-jp', errors='ignore')
+    frame = open(frameFileName, "r")
     contents = frame.read()
     #print(contents)
 

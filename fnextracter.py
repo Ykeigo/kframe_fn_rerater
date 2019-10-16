@@ -147,7 +147,7 @@ def ExtractElements(LUFileName):
 
         texts = textExtracter.findall(sentenceTag)
         labels = labelExtracter.findall(sentenceTag)
-        print(texts)
+        #print(texts)
 
         for text in texts:
             text = text[6:]

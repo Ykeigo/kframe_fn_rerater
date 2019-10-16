@@ -8,34 +8,17 @@ Ne = 3
 CNIL = 0.3
 #TOPN = 10
 
-def calcScore(midashi, midashiMostSimilars, fn, model):
-
-    vs = fnex.ExtractVerb(fn)
-    #print(vs)
-    # print(vs)
-
-    additional = []
-    for i in range(len(vs)):
-        # 返ってくるのは一行のはずだからたぶんこれでいい
-        res = ec.res_cmd("echo " + vs[i] + " | ./han2zen.pl | nkf | juman | knp -dpnd-fast -tab | ./knp2words.sh")
-        parts = res[0].split(" ")
-        vs[i] = parts[0]
-        for j in range(1, len(parts)):
-            additional.append(parts[j])
-
-    vs.extend(additional)
-    #print(vs)
-    #print(midashiMostSimilars[0:100])
-    #print(midashiMostSimilars[-1])
+def calcScore(midashi, midashiMostSimilars, fnwords, model):
+    #print(fnwords)
     similars = []
     for s in midashiMostSimilars:
         similars.append(s[0])
 
     # print(similars)
     score = 0
-    if vs:
+    if len(fnwords) > 0:
         reratingv = []
-        for v in vs:
+        for v in fnwords:
             # print(v)
             if v in similars:
                 try:
