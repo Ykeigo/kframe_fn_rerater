@@ -42,17 +42,20 @@ def ExtractID(frameFileName):
 
     numExtracter = re.compile('[0-9]+')
     lexIDExtracter = re.compile(' ID="[0-9]*"')
+    dotvExtracter = re.compile('\.[av]')
 
     if lexLines:
         #print(matchOB)
 
         #タグからlemmaIDを取り出す
         for lexUnitLine in lexLines:
-            IDTags = lexIDExtracter.findall(lexUnitLine)
-            #print(IDTags)
-            for tag in IDTags:
-                n = numExtracter.search(tag)
-                LUIDs.append(n.group())
+            isVerb = dotvExtracter.findall(lexUnitLine)
+            if isVerb:
+                IDTags = lexIDExtracter.findall(lexUnitLine)
+                #print(IDTags)
+                for tag in IDTags:
+                    n = numExtracter.search(tag)
+                    LUIDs.append(n.group())
 
 
     return LUIDs
@@ -71,6 +74,7 @@ def extractHead(str):
         if head2 != None:
             #print(head2.group())
             wordSimbol = head2.group()[9:]# <主辞’代表表記:の次の文字から見たい
+            #print(wordSimbol)
             word = ''
             add = True
             for i in range(len(wordSimbol)):
@@ -79,19 +83,23 @@ def extractHead(str):
                     continue
                 elif wordSimbol[i] == '+':
                     add = True
-                    continue
                 if add:
                     word = word + wordSimbol[i]
+
+                #print(word)
 
             return word
         if head != None:
             #print(head.group())
             word = ''
             wordSimbol = head.group()[8:]# <主辞代表表記:の次の文字から見たい
+            #print(wordSimbol)
             for i in range(len(wordSimbol)):
                 if wordSimbol[i] == '/':
                     break
                 word = word + wordSimbol[i]
+
+                #print(word)
             return word
 
     return None
@@ -99,7 +107,6 @@ def extractHead(str):
 #例文のエレメント取り出す
 #3つ目の要素が例文中の単語
 def ExtractElements(LUFileName):
-
     elements=[]
     #エレメントのname,typeを取り出す
 
@@ -139,7 +146,7 @@ def ExtractElements(LUFileName):
                 name = nameExtracter.search(fe)
                 #print(type.group())
                 #print(name.group())
-                elements.append( [name.group()[6:], type.group()[6:]] )
+                elements.append( [name.group()[6:], type.group()[6:]] )#<frame　を消すためだと思われる
 
     sentences = sentenceTagExtracter.findall(contents)
     #print(sentences)
@@ -165,17 +172,19 @@ def ExtractElements(LUFileName):
                         start = start.group()[7:]#start=を消すため
 
                         #空白消してjumanknp型にする
-                        nospace = text[int(start):int(end) - 1].replace(" ", "")
+                        nospace = text[int(start):int(end) + 1].replace(" ", "")
                         if len(nospace) == 0:
                             continue
 
                         #res = ec.res_cmd("echo " + nospace + " | ./han2zen.pl | nkf | juman | knp -dpnd-fast -tab | ./knp2words.sh")
+                        print(nospace)
                         res = extractHead(nospace)
                         #print(nospace)
                         #sprint(res)
                         #parts = res[0].split(" ")
                         #e.append(parts[-1])
-                        e.append(res)
+                        if res not in e:
+                            e.append(res)
     #print(sentences)
 
     return elements

@@ -5,8 +5,8 @@ import numpy as np
 import os
 
 Ne = 3
-CNIL = 0.3
-#TOPN = 10
+CNIL = 0.0
+KFTOPN = 50
 
 def calcScore(midashi, midashiMostSimilars, fnwords, model):
     #print(fnwords)
@@ -38,37 +38,7 @@ def calcScore(midashi, midashiMostSimilars, fnwords, model):
     return score
 
 
-def calcscore2(kframe, fnframe, model, kakuNum):
-
-    # framenetのelementを取り出す
-    IDs = fnex.ExtractID(fnframe)
-    if len(IDs) == 0:
-        return 'None'
-    #print(IDs)
-
-    elems = []
-    slash = 0
-    while slash < 2:
-        fnframe = fnframe[:-1]
-        if fnframe[-1] == '/':
-            slash += 1
-
-    elems.extend(fnex.ExtractElements(fnframe + 'lu/lu' + str(IDs[0]) + '.xml'))
-
-    for i in range(1,len(IDs)):
-        newElems = fnex.ExtractElements(fnframe + 'lu/lu' + str(IDs[i]) + '.xml')
-        exist = False
-        for j in newElems:
-            for k in range(len(elems)):
-                if j[0] == elems[k][0]:
-                    elems[k].extend(j[2:])
-                    exist = True
-                    break
-            #用例に含まれるかは関係なく全部の意味役割のタグが各luに書いてあるはずだからこれいるかどうかわからん
-            if not exist:
-                elems.extend(j)
-    print("element")
-    print(elems)
+def calcscore2(kframe, fnframedata, model, kakuNum):
 
     yorei = kfex.ExtractYorei(kframe)
 
@@ -89,99 +59,95 @@ def calcscore2(kframe, fnframe, model, kakuNum):
 
     n = 0
     if len(ga) > 0:
-        for i in ga:
-            if i in model:
-                gaAvr += model[i]
+        for i in range(min(len(ga),KFTOPN)):
+            if ga[i] in model:
+                #print(ga[i])
+                gaAvr += model[ga[i]]
                 n += 1
-        gaAvr = gaAvr / n
+        if n != 0:
+            gaAvr = gaAvr / n
     n = 0
     if len(wo) > 0:
-        for i in wo:
-            if i in model:
-                woAvr += model[i]
+        for i in range(min(len(wo),KFTOPN)):
+            if wo[i] in model:
+                #print(wo[i])
+                woAvr += model[wo[i]]
                 n += 1
-        woAvr = woAvr / n
+        if n != 0:
+            woAvr = woAvr / n
     n = 0
     if len(ni) > 0:
-        for i in ni:
-            if i in model:
-                niAvr += model[i]
+        for i in range(min(len(ni),KFTOPN)):
+            if ni[i] in model:
+                #print(ni[i])
+                niAvr += model[ni[i]]
                 n += 1
-        niAvr = niAvr / n
+        if n != 0:
+            niAvr = niAvr / n
+
+    #全部足してから正規化してるから大きさ0になってない
+    #↓なにこれ　ベクトルじゃなくなってね
+    #gaAvr = np.linalg.norm(gaAvr)
+    #woAvr = np.linalg.norm(woAvr)
+    #niAvr = np.linalg.norm(niAvr)
 
     elementAvrs = []
+    elems = []
 
-    #gaSem = 'None'
+    #全部足したやつを正規化してるから大きさ0になってない
+    for i in fnframedata.items():
+        elems.append(i[0])
+        #↓なにこれ　ベクトルじゃなくなってね
+        #elementAvrs.append(np.linalg.norm(np.array(i[1])))
+        elementAvrs.append(np.array(i[1]))
+
+    #framenetの用例のベクトルなかったら終了
+    if len(elems) == 0:
+        return -1
+
+    #print(elems)
+    #print(elementAvrs[0])
+
+    gaScore = 0
+    woScore = 0
+    niScore = 0
     gaSemScore = []
-    for i in range(len(elems)):
-        if elems[i][1] != 'Core' or len(elems[i]) <= 2:  # coreでないか用例なしなら飛ばす
-            elementAvrs.append(0)
-            gaSemScore.append(0)
-            continue
-        # eAvrは後2回使うので保存しておく
-        eAvr = np.zeros(len(model['は']))
-        for j in range(2, len(elems[i])):
-            if elems[i][j] in model:
-                eAvr += model[elems[i][j]]
-        eAvr = eAvr / (len(elems[i]) - 2)
-        elementAvrs.append(eAvr)
-
-        s = np.dot(gaAvr, eAvr)
-        gaSemScore.append(s)
-        #if gaSemScore < s:
-        #    gaSem = elems[i][0]
-        #    gaSemScore = s
-
-    #print(gaSem)
-    #print(gaSemScore)
-    # 用例が一個もないなら終了
-    #if gaSemScore == None:
-    if len(gaSemScore) == 0:
-        return 0
-
-    #を→にの順で同様に対応する意味役割を決める
-    #woSem = 'None'
     woSemScore = []
-    #niSem = 'None'
     niSemScore = []
 
+    #print(gaAvr)
+    #print(niAvr)
+    #print(woAvr)
+
     for i in range(len(elems)):
-        if elems[i][1] != 'Core' or len(elems[i]) <= 2:  # coreでないか用例なしなら飛ばす
+        l = np.linalg.norm(elementAvrs[i])
+        if np.linalg.norm(gaAvr) > 0 or l == 0:
+            s = np.dot(elementAvrs[i], gaAvr) / (l*np.linalg.norm(gaAvr))
+            gaSemScore.append(s)
+        else:
+            gaSemScore.append(0)
+        if np.linalg.norm(woAvr) > 0 or l == 0:
+            s = np.dot(elementAvrs[i], woAvr) / (l*np.linalg.norm(woAvr))
+            woSemScore.append(s)
+        else:
             woSemScore.append(0)
-            continue
-
-        s = np.dot(elementAvrs[i], woAvr)
-        woSemScore.append(s)
-        #if woSemScore < s:
-        #    woSem = elems[i][0]
-        #    woSemScore = s
-
-    #if woSemScore < CNIL:
-    #    woSem = 'None'
-    #    woSemScore = CNIL
-
-    #print(woSem)
-    #print(woSemScore)
-
-    for i in range(len(elems)):
-        if elems[i][1] != 'Core' or len(elems[i]) <= 2:  # coreでないか用例なしなら飛ばす
+        if np.linalg.norm(niAvr) > 0 or l == 0:
+            s = np.dot(elementAvrs[i], niAvr) / (l*np.linalg.norm(niAvr))
+            niSemScore.append(s)
+        else:
             niSemScore.append(0)
-            continue
 
-        s = np.dot(elementAvrs[i], niAvr)
-        niSemScore.append(s)
-        #if niSemScore < s:
-        #    niSem = elems[i][0]
-        #    niSemScore = s
-
-    #if niSemScore < CNIL:
-    #    niSem = 'None'
-    #    niSemScore = CNIL
-    #print(niSem)
-    #print(niSemScore)
+    print(gaSemScore)
+    print(woSemScore)
+    print(niSemScore)
 
     bestScoreSum = 0
     bestCom = (-1,-1,-1)
+    elems.append('None')
+    gaSemScore.append(0.0)
+    woSemScore.append(0.0)
+    niSemScore.append(0.0)
+
     for g in range(len(gaSemScore)):
         #ガ格は絶対どれかの意味役割に対応づける
         if gaSemScore[g] <= 0:
@@ -203,17 +169,18 @@ def calcscore2(kframe, fnframe, model, kakuNum):
                     niScore = CNIL
                     #continue
                 else:
-                    niScore = niSemScore[n]
+                    niScore = max(niSemScore[n], CNIL)
 
                 s = max(gaSemScore[g],CNIL) * np.sqrt(len(ga)) + woScore * np.sqrt(len(ni)) + niScore * np.sqrt(len(wo))
+                #print("番号:" + str(g) + "," + str(w) + "," + str(n))
+                #print('組み合わせ ガ格:' + elems[g] + 'ヲ格:' + elems[w] + 'ニ格:' + elems[n])
                 #print(s)
                 if s > bestScoreSum:
                     bestScoreSum = s
-                    bestCom = (g,w,n)
-    elems.append(('None', 'noCore'))
-    print('最良組み合わせ ガ格:' + elems[bestCom[0]][0] + 'ヲ格:' + elems[bestCom[1]][0] + 'ニ格:' + elems[bestCom[2]][0])
-    print( "ガ格:"+str(max(gaSemScore[bestCom[0]],CNIL)) + " 重み:" + str(np.sqrt(len(ga)) ) )
-    print("ヲ格:" + str(woSemScore[bestCom[1]]) + " 重み:" + str( np.sqrt(len(wo))))
-    print("ニ格:" + str(niSemScore[bestCom[2]]) + " 重み:" + str( np.sqrt(len(ni))))
+                    bestCom = (g, w, n)
+    print('最良組み合わせ ガ格:' + elems[bestCom[0]] + 'ヲ格:' + elems[bestCom[1]] + 'ニ格:' + elems[bestCom[2]])
+    print("ガ格:" + str(max(gaSemScore[bestCom[0]],CNIL)) + " 重み:" + str(np.sqrt(len(ga))))
+    print("ヲ格:" + str(woSemScore[bestCom[1]]) + " 重み:" + str(np.sqrt(len(wo))))
+    print("ニ格:" + str(niSemScore[bestCom[2]]) + " 重み:" + str(np.sqrt(len(ni))))
 
-    return (bestScoreSum, (elems[bestCom[0]][0],elems[bestCom[1]][0],elems[bestCom[2]][0]))
+    return (bestScoreSum, (elems[bestCom[0]],elems[bestCom[1]],elems[bestCom[2]]))
