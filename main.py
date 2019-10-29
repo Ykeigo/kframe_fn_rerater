@@ -2,6 +2,7 @@ import gensim
 import sys
 import csv
 import kfextracter as kfex
+import json
 import fnextracter as fnex
 import rerater
 import time
@@ -11,7 +12,7 @@ Nt = 1000
 args = sys.argv
 
 if len(sys.argv) < 3:
-    print("usage: python3 rerater.py kakuframe FramenetDirectory JFNindexFile topNFrames")
+    print("usage: python3 rerater.py kakuframe JFNindexFile JFNEmbeddingFile topNFrames")
     exit()
 
 print('embedding読み込み')
@@ -36,8 +37,11 @@ print("Framenet確認中")
 FNscores = []
 # Framenetのフォルダ内全部見ながら見出し語取得
 
-indexFile = open(args[3], "r")
+indexFile = open(args[2], "r")
 indexReader = csv.reader(indexFile)
+
+jfnEmFile = open(args[3], "r")
+jfnDict = json.load(jfnEmFile)
 
 for row in indexReader:
     # print(f.name)
@@ -49,8 +53,6 @@ FNscores.sort(key=lambda x: x[1], reverse=True)
 indexFile.close()
 
 print(FNscores)
-
-FNscores
 
 #候補のスコア計算して一番いいやつを正解とする
 yorei = kfex.ExtractYorei(args[1])
@@ -64,17 +66,47 @@ for kfnum in range(kfex.getFrameNum(args[1])):
     wo = yorei[kfnum][1]
     ni = yorei[kfnum][2]
 
+    print("ガ格")
+    print(ga[:20])
+    print("ヲ格")
+    print(wo[:20])
+    print("ニ格")
+    print(ni[:20])
+
     for f in FNscores:
-        print(fnex.ExtractVerb(args[2] + "/" + f[0]))
+        #print(fnex.ExtractVerb(args[2] + "/" + f[0]))
         print(f[0])
-        s = rerater.calcscore2(args[1], args[2] + "/" + f[0], embedding, int(kfnum))
-        print(s)
         """
+        ids = fnex.ExtractID("../jfn/frame/"+f[0])
+        print(ids)
+        elements = []
+        for i in ids:
+            print(str(i))
+            a = fnex.ExtractElements('../jfn/lu/lu' + str(i) + '.xml')
+            for j in a:
+                exist = False
+                for k in range(len(elements)):
+                    if elements[k][0] == j[0]:
+                        elements[k].extend(j[2:])
+                        exist = True
+                if not exist:
+                    elements.append(j)
+        print(elements)
+        """
+
+        s = rerater.calcscore2(args[1], jfnDict[f[0]], embedding, int(kfnum))
+        if s == -1:
+            print("ans:none.xml")
+            continue
+        print(s)
+
         if maxScore < s[0]:
             #print("over")
             maxScore = s[0]
             best = f[0]
             bestReration = s[1]
-        """
-    print("input:"+args[1] + " フレーム"+ str(kfnum) + " ans:" + best + " score:" + str(maxScore))
+
+    print("input:"+args[1] + " フレーム" + str(kfnum) + " ans:" + best + " score:" + str(maxScore))
     print(bestReration)
+
+jfnEmFile.close()
