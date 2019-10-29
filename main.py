@@ -28,8 +28,8 @@ if midashi not in embedding:
     print("program terminated")
     exit()
 
-midashiMostSimilars = embedding.most_similar(midashi, topn=Nt)
-
+#midashiMostSimilars = embedding.most_similar(midashi, topn=Nt)
+midashiMostSimilars = []
 #その単語自身を追加
 midashiMostSimilars.append((midashi,1.0))
 
