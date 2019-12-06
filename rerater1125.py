@@ -4,26 +4,16 @@ import executeCommand as ec
 import numpy as np
 import os
 
-# 意味役割はCoreだけ見る、ただし格解析の結果対応づくことが明示されていた場合はCoreでなくとも使う
-# 格はガ格より多く使われている格だけ使う（検討の余地）
-
 Ne = 3
 CNIL = 0.0
-KFTOPN = 20
+KFTOPN = 100
 
-ALPHA = 0.6
-BETA = 0.2
+ALPHA = 0.8
+BETA = 0.1
 
-# NORERATION = 0.25 #単語ベクトルの平均の関連度ならこんなもんだけど単語ベクトルの関連度の平均だとこれはでかい
-NORERATION = 0.1
+NORERATION = 0.25
 NONETOKEN = "None"
 SAMEKAKU = 0.6
-
-def setALPHABETA(a,b):
-    global ALPHA
-    ALPHA = a
-    global BETA
-    BETA = b
 
 def calcScore(midashi, midashiMostSimilars, fnwords, model):
     #print(fnwords)
@@ -54,14 +44,14 @@ def calcScore(midashi, midashiMostSimilars, fnwords, model):
     # print(fn + " " + str(score))
     return score
 
-def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
+def calcscore2(kframe, elements, model, kakuNum, reration, ukemiReration ):
     print(elements)
     #print(elements)
 
     ###################
     #  mainから渡すやつ #
     ###################
-    yoreis = kfex.ExtractYorei(kframe)
+    yorei = kfex.ExtractYorei(kframe)
     kfweight = kfex.getYoreiNum(kframe)
     """
     print("ガ格")
@@ -77,46 +67,95 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     # 語彙にある単語の数を記録する　あとでニとヘを合成するときにいる
     kfValidWordNum = {}
 
-    #nihe = ["ニ","ヘ"]
-
-    # 格フレームの用例のベクトルの平均を計算しておく
-    for kaku in yoreis[kakuNum]:
-        n = 0
-        kfmichigo[kaku] = False
+    n = 0
+    #格フレームの用例の単語ベクトルの平均をとる
+    for i in yorei[kakuNum]:
+        kfmichigo[i] = False
         avr = np.zeros(len(model["は"]))
-
-        #if kaku not in yoreis[kakuNum]:
-        #    continue
-
-        for i in range(min(len(yoreis[kakuNum][kaku]), KFTOPN)):
-            if yoreis[kakuNum][kaku][i][0] in model:
+        for j in range(min(len(yorei[kakuNum][i]), KFTOPN)):
+            if yorei[kakuNum][i][j] in model:
                 # print(ga[i])
-                v = model[yoreis[kakuNum][kaku][i][0]]
-                avr += v / np.linalg.norm(v) * yoreis[kakuNum][kaku][i][1]
-                n += yoreis[kakuNum][kaku][i][1]
+                avr += model[yorei[kakuNum][i][j]]
+                n += 1
             else:
                 kfmichigo[i] = True
         if n != 0:
             avr = avr / n
         # 用例が一個もなければ勝手に0になる
-        kfavrs[kaku] = avr
-        kfValidWordNum[kaku] = n
-
-    # ヘとニを類似度によっては合成する
-    if "ニ" in kfavrs and "ヘ" in kfavrs:
-        # kfValidWordNum["ニ"]
-        sim = 0
-        if kfValidWordNum["ニ"] > 0 and kfValidWordNum["ヘ"] > 0:  # 語彙にない単語だけだと平均ベクトルが0になって0で割ることになる
-            sim = np.dot(kfavrs["ニ"], kfavrs["ヘ"]) / (np.linalg.norm(kfavrs["ニ"]) * np.linalg.norm(kfavrs["ヘ"]))
-            print("ニ格とヘ格の類似度:" + str(sim))
-
-        if sim > SAMEKAKU:
-            kfweight[kakuNum]["ニ"] += kfweight[kakuNum]["ヘ"]
-            kfavrs["ニ"] = (kfavrs["ニ"] * kfValidWordNum["ニ"] + kfavrs["ヘ"] * kfValidWordNum["ヘ"]) / (kfValidWordNum["ニ"] + kfValidWordNum["ヘ"])
-
-            yoreis[kakuNum].pop("ヘ")
+        kfavrs[i] = avr
+        kfValidWordNum[i] = n
 
     #print(kfavrs)
+
+    #luの単語ベクトルの平均をとる
+    #print(elements)
+    elementAvrs = {}
+    fnmichigo = {}
+
+    for el in elements["lu"]:
+        avrGroups = {}
+        fnmichigo[el[0]] = False
+        luavr = np.zeros(len(model["は"]))
+        fravr = np.zeros(len(model["は"]))
+        paavr = np.zeros(len(model["は"]))
+
+        n = 0
+        for i in el[2:]:
+            if i in model:
+                # print(ga[i])
+                luavr += model[i]
+                n += 1
+            else:
+                fnmichigo[el[0]] = True
+        if n != 0:
+            luavr = luavr / n
+        # 用例が一個もなければ勝手に0になる
+        avrGroups["lu"] = luavr
+
+        n = 0
+        for i in elements["frame"]:
+            #print(i[0])
+            if i[0] == el[0]:
+                for j in i[2:]:
+                    #print(j)
+                    if j in model:
+                        #print("is in embedding")
+                        # print(ga[i])
+                        fravr += model[j]
+                        n += 1
+                if n != 0:
+                    fravr = fravr / n
+                # 用例が一個もなければ勝手に0になる
+                break
+        avrGroups["frame"] = fravr
+
+        n = 0
+        for i in elements["parent"]:
+            #print(i[0])
+            if i[0] == el[0]:
+                for j in i[2:]:
+                    #print(j)
+                    if j in model:
+                        #print("is in embedding")
+                        # print(ga[i])
+                        paavr += model[j]
+                        n += 1
+                if n != 0:
+                    paavr = paavr / n
+                # 用例が一個もなければ勝手に0になる
+                break
+        avrGroups["parent"] = paavr
+
+        elementAvrs[el[0]] = avrGroups
+
+    avrGroups["lu"] = np.zeros(len(model["は"]))
+    avrGroups["frame"] = np.zeros(len(model["は"]))
+    avrGroups["parent"] = np.zeros(len(model["は"]))
+
+    elementAvrs[NONETOKEN] = avrGroups
+    fnmichigo[NONETOKEN] = False
+
+    #print(elementAvrs.keys())
 
     # rerationにヒントがあるか確認する　あればそれを使う
     # 一対一で選択肢がないものを全部currenComsに入れる
@@ -126,11 +165,9 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     limitedfn = {}
     # 格とelementに対してgivenに何回ずつ入ってたかを確認する
 
-    relation.extend(convUkemiRelation(ukemiRelation))
-    # ダブり削除
-    relation = list(set(relation))
+    reration.extend(convUkemiReration(ukemiReration))
 
-    for g in relation:
+    for g in reration:
         # print(g[0])
         if g[1] in limitedkf:
             l = limitedkf[g[1]].copy()
@@ -166,7 +203,21 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     if "ガ" not in kfweight[kakuNum]:
         print("frame" + str(kakuNum) + " にはガ格がありません")
 
-    for i in yoreis[kakuNum]:
+    #ヘとニを類似度によっては合成する
+    if "ニ" in kfavrs and "ヘ" in kfavrs:
+        # kfValidWordNum["ニ"]
+        sim = 0
+        if kfValidWordNum["ニ"] > 0 and kfValidWordNum["ヘ"]: # 語彙にない単語だけだと平均ベクトルが0になって0で割ることになる
+            sim = np.dot(kfavrs["ニ"],kfavrs["ヘ"]) / (np.linalg.norm(kfavrs["ニ"]) * np.linalg.norm(kfavrs["ヘ"]))
+            print("ニ格とヘ格の類似度:"+str(sim))
+
+        if sim > SAMEKAKU:
+            kfweight[kakuNum]["ニ"] += kfweight[kakuNum]["ヘ"]
+            kfavrs["ニ"] = (kfavrs["ニ"] * kfValidWordNum["ニ"] + kfavrs["ヘ"] * kfValidWordNum["ヘ"]) / (kfValidWordNum["ニ"] + kfValidWordNum["ヘ"])
+
+            kfavrs.pop("ヘ")
+
+    for i in kfavrs:
         # 必須格かどうかはとりあえず置いておいて全部使う
         # 必須格じゃないやつにroleが対応づいたぞっていうrelationがきた時だるいから
         #print(i)
@@ -208,7 +259,7 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     l = limitedfn.copy()
     for i in l:
         if i not in elementNames:
-            limitedfn.pop(i)
+            limitedkf.pop(i)
 
     #確定してるやつをrole名前リストから削除
     for g in guaranteed:
@@ -229,48 +280,56 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     for l in limitedfn:
         limitedfn[l].append(NONETOKEN)
 
-    simScores = {}
+    semScores = {}
     #全組み合わせの類似度を計算しておく
-    simLU = calcSimScores(elements["lu"], kfavrs, model)
-    simFrame = calcSimScores(elements["frame"], kfavrs, model)
-    simParent = calcSimScores(elements["parent"], kfavrs, model)
+    for i in kfavrs:
+        l = np.linalg.norm(kfavrs[i])
+        sems = {}
+        for j in elementAvrs:
+            groups = {}
+            #print(elementAvrs[j].keys())
+            #print(i)
+            #print(j)
+            #print(j, end = " ")
+            #print(l, end = " ")
+            #print(np.linalg.norm(elementAvrs[j]["lu"]))
 
-    for kaku in yoreis[kakuNum]:
-        print(kaku, end = "      ")
-    print("")
-    for role in simLU:
-        print(role, end = " ")
-        for kaku in simLU[role]:
-            print(simLU[role][kaku], end = " ")
-        print("")
-
-    for role in simLU:
-        scores = {}
-        #print(role)
-        for kaku in simLU[role]:
-            s3 = {}
-            s3["lu"] = simLU[role][kaku][0]
-            #print("lu "+role+" "+kaku, end=" ")
-            #print(simLU[role][kaku])
-            if role in simFrame:
-                s3["frame"] = simFrame[role][kaku][0]
-                #print("frame " + role+" "+kaku,end=" ")
-                #print(simFrame[role][kaku])
+            if np.linalg.norm(elementAvrs[j]["lu"]) > 0 and l > 0:
+                s = np.dot(kfavrs[i],elementAvrs[j]["lu"]) / (l * np.linalg.norm(elementAvrs[j]["lu"]))
+                groups["lu"] = s
+                #sems[j] = s
+            # 未知語でもいいからなんか用例あったら無関係の関連度入れとく
+            #elif l == 0 and kfmichigo[i] and j != NONETOKEN:
+            #    sems[j] = NORERATION
+            #elif np.linalg.norm(elementAvrs[j]) == 0 and fnmichigo[j] and j != NONETOKEN:
+            #    sems[j] = NORERATION
+            # 用例がなければ類似度0
+            # 用例がなければ無関係の類似度
+            elif j != NONETOKEN:
+                groups["lu"] = NORERATION
+                #sems[j] = NORERATION
             else:
-                s3["frame"] = 0.0
-            if role in simParent:
-                s3["parent"] = simParent[role][kaku][0]
-                #print("parent " + role+" "+kaku,end=" ")
-                #print(simParent[role][kaku])
+                groups["lu"] = 0
+
+            if np.linalg.norm(elementAvrs[j]["frame"]) > 0 and l > 0:
+                s = np.dot(kfavrs[i],elementAvrs[j]["frame"]) / (l * np.linalg.norm(elementAvrs[j]["frame"]))
+                groups["frame"] = s
+            elif j != NONETOKEN:
+                groups["frame"] = NORERATION
             else:
-                s3["parent"] = 0.0
+                groups["frame"] = 0
 
-            scores[kaku] = s3
+            if np.linalg.norm(elementAvrs[j]["parent"]) > 0 and l > 0:
+                s = np.dot(kfavrs[i],elementAvrs[j]["parent"]) / (l * np.linalg.norm(elementAvrs[j]["parent"]))
+                groups["parent"] = s
+            elif j != NONETOKEN:
+                groups["parent"] = NORERATION
+            else:
+                groups["parent"] = 0
+            #print(groups)
+            sems[j] = groups
 
-        simScores[role] = scores
-
-
-    #print(simScores)
+        semScores[i] = sems
 
     #print(kfmichigo)
     #print(fnmichigo)
@@ -279,7 +338,7 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     print("element: ", end="")
     print(elementNames)
     print("このluの単語群間の類似度: ")
-    #print(yoreis)
+    #print(semScores)
     print("     ", end = "")
     for i in elements["lu"]:
         if i[1] == "Core" or len(i) >= 3:
@@ -287,18 +346,13 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     print("")
     print("     ", end = "")
     for i in elements["lu"]:
-        if i == NONETOKEN:
-            continue
-
         if i[1] == "Core" or len(i) >= 3:
             if len(i) >= 3:
                 print(i[2], end = " ")
             else:
                 print("なし", end=" ")
     print("")
-    for i in kfnames:
-        if i == NONETOKEN:
-            continue
+    for i in semScores:
         if "ガ" in kfweight[kakuNum] and kfweight[kakuNum][i] < kfweight[kakuNum]["ガ"]:
             continue
         #格の名前表示
@@ -307,18 +361,14 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
             print("  ", end = "")
         #類似度表示
         for j in elements["lu"]:
-            #print(simScores[j[0]])
-            if j[0] == NONETOKEN:
-                continue
             if j[1] == "Core" or len(j) >= 3:
-                #print()
-                print('{:.5f}'.format(simScores[j[0]][i]["lu"]), end = " ")
+                print('{:.5f}'.format(semScores[i][j[0]]["lu"]), end = " ")
         print("")
 
     print("格解析結果: ", end="")
-    print(relation)
+    print(reration)
     print("格解析結果（受け身）: ", end="")
-    print(ukemiRelation)
+    print(ukemiReration)
     print("確定したペア: ", end="")
     print(guaranteed)
     print("ヒントのあるペア: ", end="")
@@ -327,7 +377,6 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     allCom = []
 
     # 全組み合わせ作る
-    #print(guaranteed)
     comAll(kfnames, elementNames, guaranteed, allCom, limitedfn)
 
     #print(allCom)
@@ -345,20 +394,13 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
             elif p[1] not in kfweight[kakuNum]:
                 print( p[1] + "is not in kfweight[" + str(kakuNum) + "]")
 
-            s1 = simScores[p[0]][p[1]]["lu"]
-            s2 = simScores[p[0]][p[1]]["frame"]
-            #s3 = simScores[p[0]][p[1]]["parent"] * (1-ALPHA-BETA)
+            s1 = semScores[p[1]][p[0]]["lu"] * ALPHA
+            s2 = semScores[p[1]][p[0]]["frame"] * BETA
+            s3 = semScores[p[1]][p[0]]["parent"] * (1-ALPHA-BETA)
 
-            certainty = 0.8
-            if (p[0],p[1]) in guaranteed:
-                certainty = 1.0
-            elif p[0] in limitedfn and p[1] in limitedfn[p[0]]:
-                certainty = 0.9
-
-            #s = simScores[p[1]][p[0]] * np.sqrt(int(kfweight[kakuNum][p[1]]))
-            #s = simScores[p[1]][p[0]] * np.log10(int(kfweight[kakuNum][p[1]]))
-            #score += s1*ALPHA + s2*(1-ALPHA) #max(s1 ,s2 * ALPHA) #* pow( int(kfweight[kakuNum][p[1]]) , 1.0/2)
-            score += max(s1 ,s2 * ALPHA) * certainty
+            #s = semScores[p[1]][p[0]] * np.sqrt(int(kfweight[kakuNum][p[1]]))
+            #s = semScores[p[1]][p[0]] * np.log10(int(kfweight[kakuNum][p[1]]))
+            score += (s1+s2+s3) #* pow( int(kfweight[kakuNum][p[1]]) , 1.0/2)
 
         c.append(score)
         #print(c)
@@ -368,7 +410,7 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
 
     bestCom = sortedCom[0]
     #print(bestCom)
-    
+
     """
     print('最良組み合わせ ガ格:' + elementNames[bestCom[0]] + 'ヲ格:' + elementNames[bestCom[1]] + 'ニ格:' + elementNames[bestCom[2]])
     print("ガ格:" + str(max(gaSemScore[bestCom[0]],CNIL)) + " 重み:" + str(np.sqrt(len(ga))))
@@ -379,86 +421,20 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     for i in range(len(bestCom) - 1):
         #print(bestCom[i] ,end = " ")
 
-        luSim = simScores[bestCom[i][0]][bestCom[i][1]]["lu"]
-        frSim = simScores[bestCom[i][0]][bestCom[i][1]]["frame"]
-        paSim = simScores[bestCom[i][0]][bestCom[i][1]]["parent"]
-
-        certainty = 0.8
-        if (bestCom[i][0], bestCom[i][1]) in guaranteed:
-            certainty = 1.0
-        elif bestCom[i][0] in limitedfn and bestCom[i][1] in limitedfn[bestCom[i][0]]:
-            certainty = 0.9
-        #print(simScores[bestCom[i][0]][bestCom[i][1]], end = " ")
+        luSim = semScores[bestCom[i][1]][bestCom[i][0]]["lu"]
+        frSim = semScores[bestCom[i][1]][bestCom[i][0]]["frame"]
+        paSim = semScores[bestCom[i][1]][bestCom[i][0]]["parent"]
+        frameWordsSim = semScores[bestCom[i][1]][bestCom[i][0]]
+        parentWordsSim = semScores[bestCom[i][1]][bestCom[i][0]]
+        #print(semScores[bestCom[i][1]][bestCom[i][0]], end = " ")
         #print( kfweight[kakuNum][bestCom[i][1]] )
-        #s = luSim*ALPHA + frSim*(1-ALPHA)#max(luSim, frSim*ALPHA) #* pow( kfweight[kakuNum][bestCom[i][1]] , 1.0/2 )
-        s = max(luSim, frSim*ALPHA) * certainty
-        #s = (luSim*ALPHA + frSim*BETA + paSim*(1-ALPHA-BETA)) #* pow( kfweight[kakuNum][bestCom[i][1]] , 1.0/2 )
-        #s = simScores[bestCom[i][0]][bestCom[i][1]] * np.sqrt(kfweight[kakuNum][bestCom[i][1]))
-        #s = simScores[bestCom[i][0]][bestCom[i][1]] * np.log10(kfweight[kakuNum][bestCom[i][1]])
-        bestCom[i] = (bestCom[i][0], bestCom[i][1], luSim, frSim, certainty, s)
+        s = (luSim*ALPHA + frSim*BETA + paSim*(1-ALPHA-BETA)) #* pow( kfweight[kakuNum][bestCom[i][1]] , 1.0/2 )
+        #s = semScores[bestCom[i][1]][bestCom[i][0]] * np.sqrt(kfweight[kakuNum][bestCom[i][1]))
+        #s = semScores[bestCom[i][1]][bestCom[i][0]] * np.log10(kfweight[kakuNum][bestCom[i][1]])
+        bestCom[i] = (bestCom[i][0], bestCom[i][1], luSim, frSim, paSim, s)
 
     print(kfweight[kakuNum])
     return (bestCom[-1], bestCom[:-1])
-
-
-def calcSimScores(elements, kfavrs, model):
-    simScores = {}
-
-    #print(elements)
-    if (NONETOKEN, "Core") not in elements:
-        elements.append((NONETOKEN, "Core"))
-
-    for role in elements:
-        scores = {}
-
-        if role[1] != "Core" and len(role) < 3:
-            continue
-        for kaku in kfavrs:
-            maxSim = 0
-            maxElement = NONETOKEN
-            #NONETOKENなら関連度は0でいい？
-            if len(role) < 3:#and role[0] != NONETOKEN:
-                maxSim = 0.1
-            for elem in role[2:]:
-                #print("elem = " + elem)
-                # 語彙になければそのelementは使わない　全部あるはずだけど
-                if elem not in model:
-                    print(elem + " not in model")
-                    continue
-                sim = 0
-                n = 0
-                # そのelementと格フレームの全部の用例の類似度計算して足す
-                """
-                for i in range(min(len(yoreis[kaku]),KFTOPN)):
-                    # 語彙になければその用例は使わない
-                    if yoreis[kaku][i][0] not in model:
-                        continue
-                    # 単語動詞の類似度計算
-                    #print(elem + " " + yoreis[kaku][i])
-                    sim += model.similarity(elem,yoreis[kaku][i][0])*yoreis[kaku][i][1]
-                    n += yoreis[kaku][i][1]
-                # 格フレームの用例との類似度を平均する
-                if n > 0:
-                    sim = sim / n
-                # None以外は関連度0じゃないようにしておく
-                else:
-                    sim = NORERATION
-                # 類似度高ければそのelementの類似度を使う
-                if sim > maxSim:
-                    maxElement = elem
-                    maxSim = sim
-                """
-                sim = np.dot(model[elem], kfavrs[kaku]) / np.linalg.norm(model[elem])
-                if sim > maxSim:
-                    maxElement = elem
-                    maxSim = sim
-
-            scores[kaku] = (maxSim, maxElement)
-            #print(scores[kaku])
-
-        simScores[role[0]] = scores
-
-    return simScores
 
 
 def comAll(kfnames,roleNames,currentComs,allComs,limitedfn):
@@ -559,10 +535,11 @@ def comAll(kfnames,roleNames,currentComs,allComs,limitedfn):
 
         #print("prog" + kfnames[k])
 
-def convUkemiRelation(relation):
+def convUkemiReration(reration):
     probability = []
+    limited = {}
 
-    for r in relation:
+    for r in reration:
         if r[1] == "ガ":
             probability.append((r[0],"ヲ"))
             probability.append((r[0],"ニ"))
@@ -578,10 +555,9 @@ def convUkemiRelation(relation):
             probability.append((r[0], "ガ"))
             probability.append((r[0], "ヲ"))
             probability.append((r[0], "ニ"))
-            # デ格は河原さんの論文では必要リストに入ってなかった
-            # probability.append((r[0], "デ"))
+            probability.append((r[0], "デ"))
         else:
-            # ガ、ヲ、ニ格と連体修飾以外は見ない
+            #ガ、ヲ、ニ格と連体修飾以外は見ない
             continue
 
     #print(probability)

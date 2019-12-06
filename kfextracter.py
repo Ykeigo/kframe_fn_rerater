@@ -34,8 +34,9 @@ def ExtractMidashi(frameFileName):
 def ExYoreiSupport(line):#たぶんlinesは1行しか入ってない
     yorei = []
 
-    wordExtracter = re.compile(' .*?/.*?:')
+    wordExtracter = re.compile(' .*?/.*?:[0-9]+')
     singleWordExtracter = re.compile('.*?/')
+    numExtracter = re.compile('[0-9]+')
     #print("line")
     #print(line)
     # 最初の< >を削る　この中にスペースが入ってるから最初の単語が "@ガ格> 雲/" みたいになる
@@ -47,10 +48,14 @@ def ExYoreiSupport(line):#たぶんlinesは1行しか入ってない
     words = wordExtracter.findall(line)
     #print(words)
     for word in words:
+
+        rei = ""
+        num = numExtracter.search(word).group()
+
         pos = word.find('+')
-        if pos == -1:#最後じゃなくてないって意味
+        if pos == -1:  # pos=最後じゃなくてないって意味
             elem = singleWordExtracter.search(word)
-            yorei.append(elem.group()[1:-1])
+            rei = elem.group()[1:-1]
 
         else:
             word1 = word[:pos]
@@ -61,8 +66,9 @@ def ExYoreiSupport(line):#たぶんlinesは1行しか入ってない
             elem1 = singleWordExtracter.search(word1)
             elem2 = singleWordExtracter.search(word2)
 
-            yorei.append(elem1.group()[1:-1] + "+" + elem2.group()[1:-1])
+            rei = elem1.group()[1:-1] + "+" + elem2.group()[1:-1]
 
+        yorei.append((rei, int(num)))
 
     # print(yorei)
     return yorei
@@ -174,7 +180,7 @@ def getYoreiNum(frameFileName):
                 if name[0] == '@':
                     name = name[1:]
 
-                yoreiNum[name] = num
+                yoreiNum[name] = int(num)
 
             elif name != None:
                 print("以下の格の用例数取得失敗")

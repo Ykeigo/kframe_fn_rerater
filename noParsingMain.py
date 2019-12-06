@@ -9,21 +9,13 @@ Nt = 1000
 
 args = sys.argv
 
-if len(args) < 5:
-    print("usage: python3 rerater.py kakuframe JFNindexFile JFN_LUPath knpParsingDir")
+if len(sys.argv) < 3:
+    print("usage: python3 rerater.py kakuframe JFNindexFile JFN_LUPath")
     exit()
-
-if len(args) == 6:
-    # BETAの値は関係ない
-    rerater.setALPHABETA(float(args[5]), 0)
-    #print("setting only alpha?")
-    #exit()
-#if len(args) == 7:
-#    rerater.setALPHABETA(float(args[5]),float(args[6]))
 
 print('embedding読み込み')
 # subword使ってない↓
-embedding = gensim.models.KeyedVectors.load_word2vec_format("./knownEmbedding.vec")#('./knownEmbedding.vec')
+embedding = gensim.models.KeyedVectors.load_word2vec_format('./model.vec')
 
 
 # その格フレームの喚起語を取得
@@ -60,89 +52,74 @@ print(FNscores)
 #候補のスコア計算して一番いいやつを正解とする
 yorei = kfex.ExtractYorei(args[1])
 
+print("格フレームの用例")
+
 depends = {}
-ukemiDepends = {}
 elements = {}
 reibuns = {}
 
 for f in FNscores:
-    e = {}
+    #print(args)
+    #print(args[3] + '/' + f[0])
+    #ID = fnex.searchLu_Verb(args[3] + '/' + f[0], midashi)
+    #/を削って前の階層に行く
+    """
+    path = args[3]
+    slash = 0
+    while slash < 1:
+        path = path[:-1]
+        if path[-1] == '/':
+            slash += 1
+    """
     #その動詞のFramenetの用例と格解析結果からの格の対応をとる
     luFilePath = args[3] + '/' + f[0]
-    e["lu"] = fnex.ExtractElements(luFilePath)
-    e["frame"] = fnex.ExtractSubElements(luFilePath)
-
-    frameDir = luFilePath
-    slash = 0
-    while slash < 2:
-        if frameDir[-1] == '/':
-            slash += 1
-        frameDir = frameDir[:-1]
-    frameDir = frameDir + "/frame"
-
-    framePath = frameDir + "/" + fnex.ExtractFrame(luFilePath) + ".xml"
-
-    e["parent"] = fnex.ExtractParentsElement(framePath)
-    elements[f[0]] = e
-
-
-    depends[f[0]] = fnex.getRoleReration(midashi, luFilePath, args[4])
-    ukemiDepends[f[0]] = fnex.getUkemiReration(midashi, luFilePath, args[4])
+    elements[f[0]] = fnex.ExtractElements(luFilePath)
+    depends[f[0]] = fnex.getRoleReration(midashi, luFilePath, "/home/oyanagi/rerater/luReibuns")
     reibuns[f[0]] = fnex.ExtractReibun(luFilePath)
 
     print(f[0])
-    print("LU elements: " , end = "")
-    print(elements[f[0]]["lu"])
-    print("frame elements: " , end = "")
-    print(elements[f[0]]["frame"])
-    print("parent elements: " , end = "")
-    print(elements[f[0]]["parent"])
+    print(elements[f[0]])
 #print(elements)
 #print("ele")
 
 compareList = []
 
-for kfnum in range(min( kfex.getFrameNum(args[1]), 55)):
-    # 55っていう数字は川原さんの正解データで一番多い動詞のフレーム数が53だったから
+for kfnum in range(min( kfex.getFrameNum(args[1]), 50)):
 
     compareDict = {}
 
     print("例文:")
     for r in reibuns:
-        print(fnex.ExtractFrame(args[3]+"/"+r))
+        print(r)
         for i in reibuns[r]:
             print(i)
     print("")
 
     best = 'none.xml' #excelにまとめるときに.xmlがついてないと困る
+    bestReration = ("none", "none", "none")
     maxScore = 0
-
-    #格フレームの用例
+    """
     for i in yorei[kfnum]:
-        print(i, end="")
-        print(yorei[kfnum][i][:10])
-    print("")
-
+        print(i)
+        #print(yorei[kfnum][i][:10])
+    """
     for f in FNscores:
-        print("frame:" + fnex.ExtractFrame(args[3]+"/"+f[0]))
+        print(f[0])
 
-        s = rerater.calcscore2(args[1], elements[f[0]], embedding, int(kfnum), depends[f[0]], ukemiDepends[f[0]])
+        s = rerater.calcscore2(args[1], elements[f[0]], embedding, int(kfnum), [])
         if s == -1:
             print("ans:none.xml")
             continue
         print(s)
-        print("")
 
         if maxScore < s[0]:
             maxScore = s[0]
-            #print(args[3]+"/"+f[0])
+            print(args[3]+"/"+f[0])
             best = fnex.ExtractFrame(args[3]+"/"+f[0])
+            bestReration = s[1]
 
-        compareDict[fnex.ExtractFrame(args[3]+"/"+f[0])] = s
 
-    for f in compareDict:
-        print("FNフレーム" + f + " score:" + str(compareDict[f][0]))
-        print(str(compareDict[f][1]))
+        compareDict[best] = s
 
     print("input:" + args[1] + " フレーム" + str(kfnum) + " ans:" + best + ".xml score:" + str(maxScore))
 
