@@ -4,6 +4,7 @@ import csv
 import kfextracter as kfex
 import fnextracter as fnex
 import rerater
+import pathMover as pm
 
 Nt = 1000
 
@@ -70,24 +71,30 @@ for f in FNscores:
     #その動詞のFramenetの用例と格解析結果からの格の対応をとる
     luFilePath = args[3] + '/' + f[0]
     e["lu"] = fnex.ExtractElements(luFilePath)
-    e["frame"] = fnex.ExtractSubElements(luFilePath)
 
-    frameDir = luFilePath
-    slash = 0
-    while slash < 2:
-        if frameDir[-1] == '/':
-            slash += 1
-        frameDir = frameDir[:-1]
-    frameDir = frameDir + "/frame"
+    framePath = luFilePath
+    framePath = pm.movePath(framePath,2)
+    framePath = framePath + "/frame/" + fnex.ExtractFrame(luFilePath) + ".xml"
 
-    framePath = frameDir + "/" + fnex.ExtractFrame(luFilePath) + ".xml"
+    subElements = fnex.ExtractSubElements(luFilePath)
 
+    frameReibunElements = fnex.ExtractElements_Frame(framePath)
+    for i in range(len(subElements)):
+        for j in range(len(frameReibunElements)):
+            if len(frameReibunElements[j]) > 2:
+                if subElements[i][0] == frameReibunElements[j][0]:
+                    subElements[i].extend(frameReibunElements[j][2:])
+                else:
+                    subElements.append(frameReibunElements[j])
+
+    e["frame"] = subElements
     e["parent"] = fnex.ExtractParentsElement(framePath)
+
     elements[f[0]] = e
 
 
-    depends[f[0]] = fnex.getRoleReration(midashi, luFilePath, args[4])
-    ukemiDepends[f[0]] = fnex.getUkemiReration(midashi, luFilePath, args[4])
+    depends[f[0]] = fnex.getRoleRelation(midashi, luFilePath, args[4])#,useFrame=False)
+    ukemiDepends[f[0]] = fnex.getRoleRelation(midashi, luFilePath, args[4], ukemi=True)#, useFrame=False)
     reibuns[f[0]] = fnex.ExtractReibun(luFilePath)
 
     print(f[0])
@@ -151,7 +158,7 @@ for kfnum in range(min( kfex.getFrameNum(args[1]), 55)):
     for f in FNscores:
         print("frame:" + f[0] + " score = " + compareDict[f[0]])
         print(compareDict)
-    print(bestReration)
+    print(bestRelation)
     """
 
 for i in range(len(compareList)):

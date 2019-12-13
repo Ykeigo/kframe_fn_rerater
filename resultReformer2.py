@@ -4,7 +4,7 @@ import xlwt
 from statistics import mean
 
 group = "A"
-version = "0"
+version = "36"
 COUNTOTHER = False
 TOPNKF = 100
 
@@ -18,9 +18,9 @@ ansSheets = ansFile.sheets()
 ansSheet = ansSheets[0]
 
 if group == "A":
-    index = open("kf3nums.txt")
+    index = open("otherFiles/kf3nums.txt")
 elif group == "B":
-    index = open("kf3nums2.txt")
+    index = open("otherFiles/kf3nums2.txt")
 
 l = "0"
 

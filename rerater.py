@@ -11,8 +11,8 @@ Ne = 3
 CNIL = 0.0
 KFTOPN = 20
 
-ALPHA = 0.6
-BETA = 0.2
+ALPHA = 0.7
+BETA = 0.1
 
 # NORERATION = 0.25 #単語ベクトルの平均の関連度ならこんなもんだけど単語ベクトルの関連度の平均だとこれはでかい
 NORERATION = 0.1
@@ -126,37 +126,41 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
     limitedfn = {}
     # 格とelementに対してgivenに何回ずつ入ってたかを確認する
 
-    relation.extend(convUkemiRelation(ukemiRelation))
     # ダブり削除
     relation = list(set(relation))
 
-    for g in relation:
-        # print(g[0])
-        if g[1] in limitedkf:
-            l = limitedkf[g[1]].copy()
-            # print(type(l))
-            l.append(g[0])
-            limitedkf[g[1]] = l
-        else:
-            limitedkf[g[1]] = [g[0]]
-        if g[0] in limitedfn:
-            l = limitedfn[g[0]].copy()
-            l.append(g[1])
-            limitedfn[g[0]] = l
-        else:
-            limitedfn[g[0]] = [g[1]]
+    #guaranteedを作るために一回isGuaranteedする
+    r = isGuaranteed(relation)
+    guaranteed = r[0]
+    limitedkf = r[1]
+    limitedfn = r[2]
 
-    d = limitedkf.copy()
-    for k in d:
-        # 一対一の対応だったら確定
-        # print(k)
-        if len(limitedkf[k]) == 1 and len(limitedfn[limitedkf[k][0]]) == 1:
-            guaranteed.append((limitedkf[k][0],limitedfn[limitedkf[k][0]][0]))
-            limitedfn.pop(limitedkf[k][0])
-            limitedkf.pop(k)
+    convertedUkemi = convUkemiRelation(ukemiRelation)
+    convertedUkemi = list(set(convertedUkemi))
+    #guaranteedがあるので受け身文のreration削れる
+    con = convertedUkemi.copy()
+    for i in con:
+        # 同じ意味役割を使う関係を削除する
+        if i in guaranteed:
+            convertedUkemi.pop(i)
+        #同じ格を使う関係を削除する
+        else:
+            for j in guaranteed:
+                if guaranteed[j] == con[i]:
+                    convertedUkemi[i].remove(guaranteed[j])
+    print(convertedUkemi)
+    relation.extend(convertedUkemi)
+    relation = set(list(relation))
+
+    #limitedkfとlimitedfn作るためにもっかいisGuaranteedする
+    r = isGuaranteed(relation)
+    #受け身文で確定することはないはずなのguaranteedの部分は使わない
+    #guaranteed.extend(r[0])
+    limitedkf = r[1]
+    limitedfn = r[2]
 
     # guaranteed = 確定
-    # fndic,kfdicに入ってる = しぼれる
+    # limitedkf,limitedfnに入ってる = しぼれる
     # ↑に入ってない = 全部試す
 
     #格フレームの格の名前リストを作る
@@ -347,18 +351,19 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
 
             s1 = simScores[p[0]][p[1]]["lu"]
             s2 = simScores[p[0]][p[1]]["frame"]
-            #s3 = simScores[p[0]][p[1]]["parent"] * (1-ALPHA-BETA)
-
+            s3 = simScores[p[0]][p[1]]["parent"]
+            """
             certainty = 0.8
             if (p[0],p[1]) in guaranteed:
                 certainty = 1.0
             elif p[0] in limitedfn and p[1] in limitedfn[p[0]]:
                 certainty = 0.9
-
+            """
             #s = simScores[p[1]][p[0]] * np.sqrt(int(kfweight[kakuNum][p[1]]))
             #s = simScores[p[1]][p[0]] * np.log10(int(kfweight[kakuNum][p[1]]))
-            #score += s1*ALPHA + s2*(1-ALPHA) #max(s1 ,s2 * ALPHA) #* pow( int(kfweight[kakuNum][p[1]]) , 1.0/2)
-            score += max(s1 ,s2 * ALPHA) * certainty
+            # score += s1*ALPHA + s2*(1-ALPHA) #max(s1 ,s2 * ALPHA) #* pow( int(kfweight[kakuNum][p[1]]) , 1.0/2)
+            # score += s1 * ALPHA + s2 * BETA + s3 * (1-ALPHA-BETA)
+            score += max(s1 ,s2 * ALPHA) #* certainty
 
         c.append(score)
         #print(c)
@@ -382,20 +387,22 @@ def calcscore2(kframe, elements, model, kakuNum, relation, ukemiRelation ):
         luSim = simScores[bestCom[i][0]][bestCom[i][1]]["lu"]
         frSim = simScores[bestCom[i][0]][bestCom[i][1]]["frame"]
         paSim = simScores[bestCom[i][0]][bestCom[i][1]]["parent"]
-
+        """
         certainty = 0.8
         if (bestCom[i][0], bestCom[i][1]) in guaranteed:
             certainty = 1.0
         elif bestCom[i][0] in limitedfn and bestCom[i][1] in limitedfn[bestCom[i][0]]:
             certainty = 0.9
+        """
         #print(simScores[bestCom[i][0]][bestCom[i][1]], end = " ")
         #print( kfweight[kakuNum][bestCom[i][1]] )
         #s = luSim*ALPHA + frSim*(1-ALPHA)#max(luSim, frSim*ALPHA) #* pow( kfweight[kakuNum][bestCom[i][1]] , 1.0/2 )
-        s = max(luSim, frSim*ALPHA) * certainty
-        #s = (luSim*ALPHA + frSim*BETA + paSim*(1-ALPHA-BETA)) #* pow( kfweight[kakuNum][bestCom[i][1]] , 1.0/2 )
+        s = max(luSim, frSim*ALPHA) #* certainty
+        # s = luSim*ALPHA + frSim*(1-ALPHA)
+        # s = (luSim*ALPHA + frSim*BETA + paSim*(1-ALPHA-BETA)) #* pow( kfweight[kakuNum][bestCom[i][1]] , 1.0/2 )
         #s = simScores[bestCom[i][0]][bestCom[i][1]] * np.sqrt(kfweight[kakuNum][bestCom[i][1]))
         #s = simScores[bestCom[i][0]][bestCom[i][1]] * np.log10(kfweight[kakuNum][bestCom[i][1]])
-        bestCom[i] = (bestCom[i][0], bestCom[i][1], luSim, frSim, certainty, s)
+        bestCom[i] = (bestCom[i][0], bestCom[i][1], luSim, frSim, paSim, s)
 
     print(kfweight[kakuNum])
     return (bestCom[-1], bestCom[:-1])
@@ -459,6 +466,38 @@ def calcSimScores(elements, kfavrs, model):
         simScores[role[0]] = scores
 
     return simScores
+
+def isGuaranteed(relation):
+    limitedkf = {}
+    limitedfn = {}
+    guaranteed = []
+
+    for g in relation:
+        # print(g[0])
+        if g[1] in limitedkf:
+            l = limitedkf[g[1]].copy()
+            # print(type(l))
+            l.append(g[0])
+            limitedkf[g[1]] = l
+        else:
+            limitedkf[g[1]] = [g[0]]
+        if g[0] in limitedfn:
+            l = limitedfn[g[0]].copy()
+            l.append(g[1])
+            limitedfn[g[0]] = l
+        else:
+            limitedfn[g[0]] = [g[1]]
+
+    d = limitedkf.copy()
+    for k in d:
+        # 一対一の対応だったら確定
+        # print(k)
+        if len(limitedkf[k]) == 1 and len(limitedfn[limitedkf[k][0]]) == 1:
+            guaranteed.append((limitedkf[k][0],limitedfn[limitedkf[k][0]][0]))
+            limitedfn.pop(limitedkf[k][0])
+            limitedkf.pop(k)
+
+    return (guaranteed, limitedkf, limitedfn)
 
 
 def comAll(kfnames,roleNames,currentComs,allComs,limitedfn):
@@ -574,7 +613,7 @@ def convUkemiRelation(relation):
             probability.append((r[0],"ガ"))
             probability.append((r[0],"ニ"))
 
-        elif r[1] == "連":
+        elif r[1] == "連体":
             probability.append((r[0], "ガ"))
             probability.append((r[0], "ヲ"))
             probability.append((r[0], "ニ"))
